@@ -1,0 +1,47 @@
+.chessboard {
+    display: grid;
+
+    grid-template-columns: 100px 100px 100px 100px 100px 100px 100px 100px;
+    grid-template-rows: 100px 100px 100px 100px 100px 100px 100px 100px;
+
+    /* position: relative; */
+
+
+
+}
+
+.chesssquare {
+    position: relative;
+
+    height: 100%;
+    width: 100%;
+}
+
+.white {
+    background-color: #f0f0f0;
+    color: #000000;
+}
+
+.black {
+    background-color: #000000;
+    color: #f0f0f0;
+}
+
+.rowlabel, .columnlabel {
+    height: 20px;
+    position: absolute;
+    margin: 0;
+    font-weight: bold;
+    font-family: Arial;
+    font-size: 14pt;
+}
+
+.rowlabel {
+    top: 5px;
+    left: 5px;
+}
+
+.columnlabel {
+    bottom: 5px;
+    right: 5px;
+}
