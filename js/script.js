@@ -127,6 +127,7 @@ function RightClickDown(id) {
     console.log("Right click down: " + id);
 
     isSquareSelected = false;
+    selectedSquare = '';
 
     // DO STUFF HERE ****************************************
 
