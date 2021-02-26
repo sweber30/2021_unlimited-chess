@@ -50,3 +50,24 @@ body {
     bottom: 5px;
     right: 5px;
 }
+
+.piece {
+    position: absolute;
+    margin: 10% 10% 10% 10%;
+    padding: 0;
+    height: 80%;
+    width: 80%;
+    text-align: center;
+}
+
+button {
+    color: #000000;
+    font-size: 12pt;
+    font-weight: bold;
+    border-radius: 5px;
+    border-width: 2px;
+    border-color: #000000;
+    height: 35px;
+    width: 120px;
+    
+}
