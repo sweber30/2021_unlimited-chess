@@ -7,18 +7,16 @@
 
 
 
-
-
 //
 // Initialize Variables
 //
 
+var isGameActive = false;
 var isPieceSelected = false;
-//var isMovingPiece = false; // needed to support dragging pieces between squares ***************************
 var selectedSquare = '';
-//var playerTurn = 0; // set in gamestart function. 1 = white, 2 = black. Will be used to restrict piece movement.
+var playerTurn = 0; // Set in gamestart function. 1 = white, 2 = black. Will be used to restrict piece movement.
 
-var pieceLocations = { // 1 = white, 2 = black. k = king, q = queen, r = rook, b = bishop, n = knight, p = pawn.
+const startingPosition = { // 1 = white, 2 = black. k = king, q = queen, r = rook, b = bishop, n = knight, p = pawn.
     a8:'r2', b8:'n2', c8:'b2', d8:'q2', e8:'k2', f8:'b2', g8:'n2', h8:'r2',
     a7:'p2', b7:'p2', c7:'p2', d7:'p2', e7:'p2', f7:'p2', g7:'p2', h7:'p2',
     a6:'  ', b6:'  ', c6:'  ', d6:'  ', e6:'  ', f6:'  ', g6:'  ', h6:'  ',
@@ -29,11 +27,61 @@ var pieceLocations = { // 1 = white, 2 = black. k = king, q = queen, r = rook, b
     a1:'r1', b1:'n1', c1:'b1', d1:'q1', e1:'k1', f1:'b1', g1:'n1', h1:'r1'
 }
 
+var pieceLocations = {};
+pieceLocations = Object.assign(pieceLocations, startingPosition);
+
 const columns = ["a", "b", "c", "d", "e", "f", "g", "h"];
+
+const blankImage = "data:image/svg+xml;charset=utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E";
 
 var moves = ""; // String to concatenate all new moves
 
 
+
+// Remove right click menu.
+$(document).ready(function() {
+    $('.chessboard').on("contextmenu", function(e) {
+        return false;
+    });
+});
+
+
+
+
+//
+// Event Handlers
+//
+
+// Runs once the webpage loads
+$(document).ready(function() {
+
+    resizeElements();
+
+    // Window resize event handler
+    $(window).resize(function() { resizeElements(); });
+
+});
+
+// Resize certain elements based on window size
+function resizeElements() {
+
+    var height = window.innerHeight * 0.85;
+    var width = window.innerWidth * 0.95;
+
+    var scale;
+
+    scale = Math.min(height, width).toString() + "px";
+    fontSize = (16 * Math.min(height, width) / 800).toString().toString() + "pt";
+
+    $('.chessboard').css({
+        height: scale,
+        width: scale
+    });
+
+    $('.rowlabel, .columnlabel').css({
+        fontSize: fontSize
+    });
+}
 
 // Mouse down event handlers for all squares
 $('.piece').mousedown(function(event) {
@@ -50,7 +98,7 @@ $('.piece').mousedown(function(event) {
             break;
 
         case 3: // right button
-            //RightClickDown(id); **********************************
+            RightClickDown(id)
             break;
 
         default: // other unexpected value
@@ -97,25 +145,10 @@ function LeftClickDown(id) {
 
         }
 
-        // Check if piece can move to this square
-        else if (selectedSquare != id && isMoveValid(selectedSquare, id)) {
-
-            // move the piece ****************************************
-            MovePiece(selectedSquare, id);
-
-
-
-            // Reset selected square to nothing
-            selectedSquare = '';
-            isPieceSelected = false;
-
-        }
-
     } else { // No piece is selected
 
         // Check if square contains a piece that belongs to the player
-        // CURRENTLY ALLOWS FOR ALL PIECES TO BE SELECTED. NEED TO ADD TURNS AND RESTRICT ONE COLOR FROM BEING SELECTED! *******************
-        if (pieceLocations[id].substr(1, 1) == 1 || pieceLocations[id].substr(1, 1) == 2) {
+        if (pieceLocations[id].substr(1, 1) == playerTurn.toString()) {
 
             // Set isPieceSelected to true, and store square id.
             isPieceSelected = true;
@@ -131,12 +164,27 @@ function LeftClickDown(id) {
 function LeftClickUp(id) {
     console.log("Left click up: " + id);
 
+    // check if square is selected
+    if (isPieceSelected) {
+        
+        // check if user is trying to drag the piece
+        if (selectedSquare != id) { // click and release on different squares (dragging piece)
 
+            // Check if piece can move to the new square
+            if (pieceLocations[selectedSquare].substr(1, 1) != pieceLocations[id].substr(1, 1) && selectedSquare != id && isMoveValid(selectedSquare, id)) {
 
-    // DO STUFF HERE *****************************************
+                // Move the piece
+                MovePiece(selectedSquare, id);
+    
+            }
+            
+            // Reset selected square to nothing
+            selectedSquare = '';
+            isPieceSelected = false;
 
+        }
 
-
+    }
     
 }
 
@@ -144,14 +192,11 @@ function LeftClickUp(id) {
 function RightClickDown(id) {
     console.log("Right click down: " + id);
 
-    isSquareSelected = false;
+    // Deselect piece
+    isPieceSelected = false;
     selectedSquare = '';
 
-    // DO STUFF HERE ****************************************
-
-    // Deselect the piece if one is selected
-
-    // Return dragged piece to its square
+    // Return dragged piece to its square *****************************************************
 
 }
 
@@ -166,7 +211,7 @@ function RightClickUp(id) {
 }
 
 // Check if a move is valid
-function isMoveValid(oldSquare, newSquare) { // DO STUFF HERE *************************************
+function isMoveValid(oldSquare, newSquare) {
     
     // Set Variables
     var pieceCode = pieceLocations[oldSquare];
@@ -186,10 +231,10 @@ function isMoveValid(oldSquare, newSquare) { // DO STUFF HERE ******************
     var testSquarePiece = '';
     var oppenentColor = (pieceColor == 1) ? 2 : 1;
 
-    var oldSquarePiece = pieceLocations[oldSquare];
-    var newSquarePiece = pieceLocations[newSquare];
-
     var moveID = 0;
+
+    var oldPieceLocations = {};
+    oldPieceLocations = Object.assign(oldPieceLocations, pieceLocations);
 
 
     // To-Do **********************************
@@ -336,8 +381,7 @@ function isMoveValid(oldSquare, newSquare) { // DO STUFF HERE ******************
     }
 
     // Reset modified piece positions in pieceLocations object.
-    pieceLocations[oldSquare] = oldSquarePiece;
-    pieceLocations[newSquare] = newSquarePiece;
+    pieceLocations = Object.assign(pieceLocations, oldPieceLocations);
 
     // Remove these later. *********************************************************************
     console.log(isMoveValid);
@@ -349,58 +393,61 @@ function isMoveValid(oldSquare, newSquare) { // DO STUFF HERE ******************
 }
 
 // Move a piece from one square to another
-// Important to check if move is valid before moving the piece
+// *** Important to check if move is valid before moving the piece!
 function MovePiece(oldSquare, newSquare) {
 
     // set new piece locations
     pieceLocations[newSquare] = pieceLocations[oldSquare];
     pieceLocations[oldSquare] = '  ';
 
-    // Determine what piece was moved
-
-    var pieceName = (pieceLocations[newSquare].substr(1,1) == 1) ? "White " : "Black ";
-
-    switch (pieceLocations[newSquare].substr(0,1)) {
-
-        case 'k':
-            pieceName += "King";
-            break;
-
-        case 'q':
-            pieceName += "Queen";
-            break;
-
-        case 'r':
-            pieceName += "Rook";
-            break;
-
-        case 'b':
-            pieceName += "Bishop";
-            break;
-
-        case 'n':
-            pieceName += "Knight";
-            break;
-
-        case 'p':
-            pieceName += "Pawn";
-            break;
-
-        default: // other unexpected value
-            console.log('MovePiece(): Unexpected piece code in the locations object'); // TEST PURPOSES... REMOVE THIS LATER ***************************
-
+    // Pawn promote... AUTO PROMOTES TO QUEEN FOR NOW. CHANGE THIS LATER!!! ******************************************************
+    if ((pieceLocations[newSquare] == 'p2' && newSquare.substr(1, 1) == '1') || (pieceLocations[newSquare] == 'p1' && newSquare.substr(1, 1) == '8')) {
+        pieceLocations[newSquare] = 'q' + pieceLocations[newSquare].substr(1, 1);
     }
 
     // update locations on webpage
-    $('#' + oldSquare).children('.piece').first().text('Empty');
-    $('#' + newSquare).children('.piece').first().text(pieceName);
+    $('#' + oldSquare).children('.piece').first().attr("src", blankImage);
+    $('#' + newSquare).children('.piece').first().attr("src", "images/pieces/" + pieceLocations[newSquare] + ".png");
+
+    // Set turn to next player
+    if (playerTurn == 1) {
+        playerTurn = 2;
+    } else if (playerTurn == 2) {
+        playerTurn = 1;
+    }
+
 }
 
 // Function runs when start game button is pressed.
 function StartGame() {
-    console.log("Game Started!");
 
-    // More stuff here... *******************************************************
+    if (!isGameActive) {
+
+        playerTurn = 1; // Set turn to player 1 (white)
+        isGameActive = true;
+
+        $('#StartGame').text('Reset Game');
+
+    } else {
+
+        // Reset piece posistions
+        for (const square in pieceLocations) {
+
+            pieceLocations[square] = startingPosition[square]
+
+            if (pieceLocations[square] == '  ') {
+                $('#' + square).children('.piece').first().attr("src", blankImage);
+            } else {
+                $('#' + square).children('.piece').first().attr("src", "images/pieces/" + pieceLocations[square] + ".png");
+            }
+    
+        }
+
+        playerTurn = 0;
+        isGameActive = false;
+        $('#StartGame').text('Start Game');
+    }
+    
 }
 
 // Helper function that returns the square name(s) of a piece
@@ -461,11 +508,14 @@ function checkPath(kingSquare, xIncrement, yIncrement) {
 }
 
 // Determine if there is a piece between two squares
-// Warning: Does NOT check if there is a linear path between the two squares. A non-linear path will result in an error!
 function checkPathBlocked(squareOne, squareTwo, includeSecondSquare) {
 
     var xDistance = CalculateXDistance(squareOne, squareTwo);
     var yDistance = CalculateYDistance(squareOne, squareTwo);
+
+    if (Math.abs(xDistance) != Math.abs(xDistance) && xDistance != 0 && yDistance != 0) {
+        return true;
+    }
     
     var xPos = columns.indexOf(squareOne.substr(0, 1));
     var yPos = parseInt(squareOne.substr(1, 1));
