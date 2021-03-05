@@ -11,6 +11,8 @@ body {
     grid-template-columns: 12.5% 12.5% 12.5% 12.5% 12.5% 12.5% 12.5% 12.5%;
     grid-template-rows: 12.5% 12.5% 12.5% 12.5% 12.5% 12.5% 12.5% 12.5%;
 
+    touch-action: none;
+
     /* position: relative; */
 
 
