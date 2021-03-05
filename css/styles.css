@@ -5,8 +5,11 @@ body {
 .chessboard {
     display: grid;
 
-    grid-template-columns: 100px 100px 100px 100px 100px 100px 100px 100px;
-    grid-template-rows: 100px 100px 100px 100px 100px 100px 100px 100px;
+    height: 800px;
+    width: 800px;
+
+    grid-template-columns: 12.5% 12.5% 12.5% 12.5% 12.5% 12.5% 12.5% 12.5%;
+    grid-template-rows: 12.5% 12.5% 12.5% 12.5% 12.5% 12.5% 12.5% 12.5%;
 
     /* position: relative; */
 
@@ -24,40 +27,48 @@ body {
 }
 
 .white {
-    background-color: #f0f0f0;
-    color: #000000;
+    background-color: #ecead4;
+    color: #476b62;
 }
 
 .black {
-    background-color: #000000;
-    color: #f0f0f0;
+    background-color: #476b62;
+    color: #ecead4;
 }
 
 .rowlabel, .columnlabel {
-    height: 20px;
+    height: auto;
+    padding: 0;
     position: absolute;
     margin: 0;
-    font-weight: bold;
-    font-size: 14pt;
+    font-weight: normal;
+    background-color: rgba(0, 0, 0, 0);
+    z-index: 1;
 }
 
 .rowlabel {
-    top: 5px;
-    left: 5px;
+    top: 5%;
+    left: 5%;
 }
 
 .columnlabel {
-    bottom: 5px;
-    right: 5px;
+    bottom: 2.5%;
+    right: 5%;
 }
 
 .piece {
     position: absolute;
-    margin: 10% 10% 10% 10%;
+    margin: 5% 5% 5% 5%;
     padding: 0;
-    height: 80%;
-    width: 80%;
+    height: 90%;
+    width: 90%;
     text-align: center;
+    z-index: 999;
+
+    -webkit-user-drag: none;
+    -khtml-user-drag: none;
+    -moz-user-drag: none;
+    -o-user-drag: none;
 }
 
 button {
@@ -70,4 +81,12 @@ button {
     height: 35px;
     width: 120px;
     
+}
+
+/* Remove text select on chessboard area */
+.chessboard, .chessboard:before, .chessboard:after {
+    -webkit-user-select: none; /* Chrome/Safari */        
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE10+ */
+    user-select: none;
 }
