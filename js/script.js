@@ -34,7 +34,9 @@ const columns = ["a", "b", "c", "d", "e", "f", "g", "h"];
 
 const blankImage = "data:image/svg+xml;charset=utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E";
 
-var moves = ""; // String to concatenate all new moves
+// String to concatenate all new moves
+// Format: "1122;1122;1122; ....." 11 = two character starting square, 22 = two character ending square, moves separated by semicolons 
+var moves = "";
 
 
 
@@ -216,8 +218,10 @@ function isMoveValid(oldSquare, newSquare) {
     // Set Variables
     var pieceCode = pieceLocations[oldSquare];
     var pieceMoved = pieceCode.substr(0, 1);
-    var pieceColor = pieceCode.substr(1, 1);
-    var kingLocation;
+    var playerColor = pieceCode.substr(1, 1);
+    var kingLocation = findPiece("k" + playerColor).substr(0, 2);
+    var kingHasMoved = (moves.indexOf(squareAt('e', (playerColor == 1) ? 1 : 8)) != -1);
+    var castleRookPosistion = '  ';
 
     var isMoveValid = false;
     var isPathBlocked = false;
@@ -228,8 +232,8 @@ function isMoveValid(oldSquare, newSquare) {
     var xDistanceAbs = Math.abs(xDistance);
     var yDistanceAbs = Math.abs(yDistance);
 
-    var testSquarePiece = '';
-    var oppenentColor = (pieceColor == 1) ? 2 : 1;
+    //var testSquarePiece = '';
+    var oppenentColor = (playerColor == 1) ? 2 : 1;
 
     var moveID = 0;
 
@@ -257,8 +261,44 @@ function isMoveValid(oldSquare, newSquare) {
     switch (pieceMoved) {
 
         case "k": // King
-            isMoveValid = (xDistanceAbs <= 1 && yDistanceAbs <= 1);
-            moveID = 1;
+            if (xDistanceAbs <= 1 && yDistanceAbs <= 1) { // normal move
+                isMoveValid = true;
+                moveID = 1;
+            } else if (xDistanceAbs == 2 && yDistance == 0 && !kingInCheck(kingLocation, playerColor, pieceLocations) && !kingHasMoved) { // castling
+                switch (newSquare) {
+                    case "c1": // White long castle
+                        if (moves.indexOf('a1') == -1) {
+                            isMoveValid = true;
+                            castleRookPosistion = 'a1';
+                        }
+                        break;
+                        
+                    case "g1": // White short castle
+                        if (moves.indexOf('h1') == -1) {
+                            isMoveValid = true;
+                            castleRookPosistion = 'h1';
+                        }
+                        break;
+
+                    case "c8": // Black long castle
+                        if (moves.indexOf('a8') == -1) {
+                            isMoveValid = true;
+                            castleRookPosistion = 'a8';
+                        }
+                        break;
+
+                    case "g8": // Black short castle
+                        if (moves.indexOf('h8') == -1) {
+                            isMoveValid = true;
+                            castleRookPosistion = 'h8';
+                        }
+                        break;
+
+                    default: // invalid castling square
+                        isMoveValid = false;
+                }
+                moveID = 10;
+            }
             break;
 
         case "q": // Queen
@@ -283,26 +323,43 @@ function isMoveValid(oldSquare, newSquare) {
 
         case "p": // Pawn
             if (xDistance == 0) { // Forward pawn move
-                if (oldSquare.substr(1, 1) == ((pieceColor == 1) ? "2" : "7")) { // Pawn has not moved yet
-                    isMoveValid = (yDistance == ((pieceColor == 1) ? 1 : -1) || yDistance == ((pieceColor == 1) ? 2 : -2));
+                if (oldSquare.substr(1, 1) == ((playerColor == 1) ? "2" : "7")) { // Pawn has not moved yet
+                    isMoveValid = (yDistance == ((playerColor == 1) ? 1 : -1) || yDistance == ((playerColor == 1) ? 2 : -2));
                     moveID = 6;
                 } else { // Pawn has already moved
-                    isMoveValid = (yDistance == ((pieceColor == 1) ? 1 : -1));
+                    isMoveValid = (yDistance == ((playerColor == 1) ? 1 : -1));
                     moveID = 7;
                 }
             } else { // Capturing
                 if (pieceLocations[newSquare] == '  ') { // En passant capture
-                    isMoveValid == false; // ************************************************************************************
+
+                    if (xDistanceAbs == 1 && (yDistance == ((playerColor == 1) ? 1 : -1))) {
+
+                        var lastMove = moves.split(";")[moves.split(";").length - 2];
+                        var captureSquare = squareAt(getFile(newSquare), getRank(newSquare) - ((playerColor == 1) ? 1 : -1));
+                        console.log(captureSquare);
+                        var opponentPawnStartSquare = squareAt(getFile(newSquare), ((oppenentColor == 1) ? 2 : 7));
+                        console.log(opponentPawnStartSquare);
+                        
+                        if (getRank(captureSquare) == (6 - playerColor) && pieceLocations[captureSquare] == ('p' + oppenentColor.toString()) && lastMove == opponentPawnStartSquare + captureSquare) {
+                            isMoveValid = true;
+                            
+                            // temporarily delete the captured pawn
+                            pieceLocations[captureSquare] = '  ';
+                        }
+
+                    }
+
                     moveID = 8;
                 } else { // Normal capture
-                    isMoveValid = (xDistanceAbs == 1 && (yDistance == ((pieceColor == 1) ? 1 : -1)));
+                    isMoveValid = (xDistanceAbs == 1 && (yDistance == ((playerColor == 1) ? 1 : -1)));
                     moveID = 9;
                 }
             }
             break;
 
         default: // other unexpected values
-            console.log('isMoveValid(): Unexpected piece code in the locations object'); // TEST PURPOSES... REMOVE THIS LATER ***************************
+            console.log('isMoveValid(): Unexpected piece code in piece locations object'); // TEST PURPOSES... REMOVE THIS LATER ***************************
 
     }
 
@@ -313,7 +370,7 @@ function isMoveValid(oldSquare, newSquare) {
     // Add Casting!!! **********************************************************************************************************
     if (moveID == 2 || moveID == 3 || moveID == 4) { // queen, rook, or bishop
         isPathBlocked = checkPathBlocked(oldSquare, newSquare, false);
-    } else if (moveID == 6 || moveID == 7) { // forward pawn move (not capturing)
+    } else if (moveID == 6 || moveID == 7 || moveID == 10) { // forward pawn move (not capturing), castling
         isPathBlocked = checkPathBlocked(oldSquare, newSquare, true);
     } else { // all other moves are a distance of one, and/or do not care if certain squares are occupied
         isPathBlocked = false;
@@ -323,72 +380,50 @@ function isMoveValid(oldSquare, newSquare) {
     // Does this move (not) leave the player in check?
     //
 
+
+    if (moveID == 10) {
+        var nextSquare = squareAt(columns[(columns.indexOf(getFile(oldSquare)) + columns.indexOf(getFile(newSquare))) / 2], getRank(oldSquare));
+
+        pieceLocations[nextSquare] = pieceLocations[oldSquare];
+        pieceLocations[oldSquare] = '  ';
+
+        kingLocation = findPiece("k" + playerColor).substr(0, 2);
+        isKingInCheck = kingInCheck(kingLocation, playerColor, pieceLocations);
+
+        if (!isKingInCheck && castleRookPosistion != '  ') {
+            pieceLocations[oldSquare] = pieceLocations[nextSquare];
+            pieceLocations[nextSquare] = pieceLocations[castleRookPosistion];
+            pieceLocations[castleRookPosistion] = '  ';
+        }
+    }
+
+
     // Temporarily update piece location in pieceLocations object.
     pieceLocations[newSquare] = pieceLocations[oldSquare];
     pieceLocations[oldSquare] = '  ';
 
     // Find king's position.
-    kingLocation = findPiece("k" + pieceColor).substr(0, 2);
+    kingLocation = findPiece("k" + playerColor).substr(0, 2);
     console.log(kingLocation);
 
-    // Check horizontal, vertical, and diagonal lines out from the king for hazardous pieces.
-    for (var x = -1; x <= 1; x++) {
-        for (var y = -1; y <= 1; y++) {
-
-            testSquarePiece = checkPath(kingLocation, x, y);
-
-            if (Math.abs(x + y) == 1) { // Straight path
-                if (testSquarePiece == 'q' + oppenentColor.toString() || testSquarePiece == 'r' + oppenentColor.toString()) {
-                    isKingInCheck = true;
-                }
-            } else { // Diagonal path
-                if (testSquarePiece == 'q' + oppenentColor.toString() || testSquarePiece == 'b' + oppenentColor.toString()) {
-                    isKingInCheck = true;
-                }
-            }
-
-        }
+    if (!isKingInCheck) {
+        isKingInCheck = kingInCheck(kingLocation, playerColor, pieceLocations);
     }
-
-    // Check for pawn checks
-    var xPos = columns.indexOf(kingLocation.substr(0, 1));
-    var yPos = parseInt(kingLocation.substr(1, 1));
-
-    var squareOne = (xPos < 7 && yPos != ((pieceColor == 1) ? 8 : 1)) ? columns[xPos + 1].toString() + (yPos + ((pieceColor == 1) ? 1 : -1)).toString() : '  ';
-    var squareTwo = (xPos > 0 && yPos != ((pieceColor == 1) ? 8 : 1)) ? columns[xPos - 1].toString() + (yPos + ((pieceColor == 1) ? 1 : -1)).toString() : '  ';
-
-    if (squareOne != '  ') {
-        if (pieceLocations[squareOne] == 'p' + oppenentColor.toString()) {
-            isKingInCheck = true;
-        }
-    }
-    if (squareTwo != '  ') {
-        if (pieceLocations[squareTwo] == 'p' + oppenentColor.toString()) {
-            isKingInCheck = true;
-        }
-    }
-
-    // Check for knight checks
-    const xValues = [-2, -2, -1, -1, 1, 1, 2, 2];
-    const yValues = [1, -1, 2, -2, 2, -2, 1, -1];
     
-    for (var i = 0; i < 8; i++) {
-        if (xPos + xValues[i] >= 0 && xPos + xValues[i] < 8 && yPos + yValues[i] > 0 && yPos + yValues[i] <= 8) {
-            if (pieceLocations[columns[xPos + xValues[i]].toString() + (yPos + yValues[i]).toString()] == 'n' + oppenentColor.toString()) {
-                isKingInCheck = true;
-            }
-        }
-    }
+    // Determine if move is allowed based on the tested conditions
+    var isMoveAllowed = isMoveValid && !isPathBlocked && !isKingInCheck
 
-    // Reset modified piece positions in pieceLocations object.
-    pieceLocations = Object.assign(pieceLocations, oldPieceLocations);
+    // Reset modified piece positions in pieceLocations object if the move is invalid.
+    if (!isMoveAllowed) {
+        pieceLocations = Object.assign(pieceLocations, oldPieceLocations);
+    }
 
     // Remove these later. *********************************************************************
     console.log(isMoveValid);
     console.log(!isPathBlocked);
     console.log(!isKingInCheck);
 
-    return (isMoveValid && !isPathBlocked && !isKingInCheck); // Returns true if the move is valid and doesn't leave the king in check.
+    return isMoveAllowed; // Returns true if the move is valid and doesn't leave the king in check.
 
 }
 
@@ -397,23 +432,67 @@ function isMoveValid(oldSquare, newSquare) {
 function MovePiece(oldSquare, newSquare) {
 
     // set new piece locations
-    pieceLocations[newSquare] = pieceLocations[oldSquare];
-    pieceLocations[oldSquare] = '  ';
+    //pieceLocations[newSquare] = pieceLocations[oldSquare];
+    //pieceLocations[oldSquare] = '  ';
 
     // Pawn promote... AUTO PROMOTES TO QUEEN FOR NOW. CHANGE THIS LATER!!! ******************************************************
     if ((pieceLocations[newSquare] == 'p2' && newSquare.substr(1, 1) == '1') || (pieceLocations[newSquare] == 'p1' && newSquare.substr(1, 1) == '8')) {
         pieceLocations[newSquare] = 'q' + pieceLocations[newSquare].substr(1, 1);
     }
 
-    // update locations on webpage
-    $('#' + oldSquare).children('.piece').first().attr("src", blankImage);
-    $('#' + newSquare).children('.piece').first().attr("src", "images/pieces/" + pieceLocations[newSquare] + ".png");
+    // update images on chess board
+    for (const square in pieceLocations) {
+        if (pieceLocations[square] == '  ') {
+            $('#' + square).children('.piece').first().attr("src", blankImage);
+        } else {
+            $('#' + square).children('.piece').first().attr("src", "images/pieces/" + pieceLocations[square] + ".png");
+        }
+    }
+
+    //$('#' + oldSquare).children('.piece').first().attr("src", blankImage);
+    //$('#' + newSquare).children('.piece').first().attr("src", "images/pieces/" + pieceLocations[newSquare] + ".png");
+
+    // Append new move to moves string
+    moves += oldSquare + newSquare + ";"
 
     // Set turn to next player
     if (playerTurn == 1) {
         playerTurn = 2;
     } else if (playerTurn == 2) {
         playerTurn = 1;
+    }
+
+    // Test for checkmate
+    var kingLocation = findPiece("k" + playerTurn).substr(0, 2);
+
+    if (kingInCheck(kingLocation, playerTurn, pieceLocations)) {
+
+        var checkmate = true;
+
+        // ***************************************************************************************************
+        // more code here
+        
+        // loop through all possible moves for all pieces
+        // set checkmate variable to false if a valid move is found
+
+
+
+
+
+
+
+        
+        checkmate = false; // REMOVE THIS ONCE CHECKMATE DETECTION IS FINISHED!!! *************************************
+
+        // If there is a move that stops check, do nothing and continue with the game.
+        // Otherwise, end the game.
+        if (checkmate) {
+
+            playerTurn = 0;
+            isGameActive = false;
+            $('#StartGame').text('Start Game');
+
+        }
     }
 
 }
@@ -425,6 +504,7 @@ function StartGame() {
 
         playerTurn = 1; // Set turn to player 1 (white)
         isGameActive = true;
+        moves = ""; // Clear past moves
 
         $('#StartGame').text('Reset Game');
 
@@ -541,4 +621,85 @@ function checkPathBlocked(squareOne, squareTwo, includeSecondSquare) {
     } while (square != squareTwo);
 
     return false;
+}
+
+// returns true if the king is in check
+function kingInCheck(kingLocation, playerColor, pieceLocations) {
+
+    var testSquarePiece = '';
+    var oppenentColor = (playerColor == 1) ? 2 : 1;
+
+    // Check horizontal, vertical, and diagonal lines out from the king for hazardous pieces.
+    for (var x = -1; x <= 1; x++) {
+        for (var y = -1; y <= 1; y++) {
+
+            testSquarePiece = checkPath(kingLocation, x, y);
+
+            if (Math.abs(x + y) == 1) { // Straight path
+                if (testSquarePiece == 'q' + oppenentColor.toString() || testSquarePiece == 'r' + oppenentColor.toString()) {
+                    return true;
+                }
+            } else { // Diagonal path
+                if (testSquarePiece == 'q' + oppenentColor.toString() || testSquarePiece == 'b' + oppenentColor.toString()) {
+                    return true;
+                }
+            }
+
+        }
+    }
+
+    // Check for pawn checks
+    var xPos = columns.indexOf(kingLocation.substr(0, 1));
+    var yPos = parseInt(kingLocation.substr(1, 1));
+
+    var squareOne = (xPos < 7 && yPos != ((playerColor == 1) ? 8 : 1)) ? columns[xPos + 1].toString() + (yPos + ((playerColor == 1) ? 1 : -1)).toString() : '  ';
+    var squareTwo = (xPos > 0 && yPos != ((playerColor == 1) ? 8 : 1)) ? columns[xPos - 1].toString() + (yPos + ((playerColor == 1) ? 1 : -1)).toString() : '  ';
+
+    if (squareOne != '  ') {
+        if (pieceLocations[squareOne] == 'p' + oppenentColor.toString()) {
+            return true;
+        }
+    }
+    if (squareTwo != '  ') {
+        if (pieceLocations[squareTwo] == 'p' + oppenentColor.toString()) {
+            return true;
+        }
+    }
+
+    // Check for knight checks
+    const xValues = [-2, -2, -1, -1, 1, 1, 2, 2];
+    const yValues = [1, -1, 2, -2, 2, -2, 1, -1];
+    
+    for (var i = 0; i < 8; i++) {
+        if (xPos + xValues[i] >= 0 && xPos + xValues[i] < 8 && yPos + yValues[i] > 0 && yPos + yValues[i] <= 8) {
+            if (pieceLocations[columns[xPos + xValues[i]].toString() + (yPos + yValues[i]).toString()] == 'n' + oppenentColor.toString()) {
+                return true;
+            }
+        }
+    }
+
+    // Check for opponent king
+    var opponentKingLocation = findPiece("k" + oppenentColor).substr(0, 2);
+    
+    if (Math.abs(CalculateXDistance(kingLocation, opponentKingLocation)) <= 1 && Math.abs(CalculateYDistance(kingLocation, opponentKingLocation)) <= 1) {
+        return true;
+    }
+
+    return false; // no checks found
+
+}
+
+// return the file (column) of a square
+function getFile(square) {
+    return square.substr(0, 1);
+}
+
+// return the rank (row) of a square
+function getRank(square) {
+    return parseInt(square.substr(1, 1));
+}
+
+// return the square at the given file and rank
+function squareAt(file, rank) {
+    return file.toString() + rank.toString();
 }
