@@ -173,7 +173,7 @@ function LeftClickUp(id) {
         if (selectedSquare != id) { // click and release on different squares (dragging piece)
 
             // Check if piece can move to the new square
-            if (pieceLocations[selectedSquare].substr(1, 1) != pieceLocations[id].substr(1, 1) && selectedSquare != id && isMoveValid(selectedSquare, id)) {
+            if (pieceLocations[selectedSquare].substr(1, 1) != pieceLocations[id].substr(1, 1) && selectedSquare != id && isMoveValid(selectedSquare, id, true)) {
 
                 // Move the piece
                 MovePiece(selectedSquare, id);
@@ -213,7 +213,7 @@ function RightClickUp(id) {
 }
 
 // Check if a move is valid
-function isMoveValid(oldSquare, newSquare) {
+function isMoveValid(oldSquare, newSquare, updateMoves) {
     
     // Set Variables
     var pieceCode = pieceLocations[oldSquare];
@@ -232,7 +232,6 @@ function isMoveValid(oldSquare, newSquare) {
     var xDistanceAbs = Math.abs(xDistance);
     var yDistanceAbs = Math.abs(yDistance);
 
-    //var testSquarePiece = '';
     var oppenentColor = (playerColor == 1) ? 2 : 1;
 
     var moveID = 0;
@@ -240,19 +239,18 @@ function isMoveValid(oldSquare, newSquare) {
     var oldPieceLocations = {};
     oldPieceLocations = Object.assign(oldPieceLocations, pieceLocations);
 
-
-    // To-Do **********************************
-    // special moves!!!!
-    //
-    // king side castle
-    // queen side castle
-    // en passant
-    // promotions
-
     //
     // If the answer to any of the following is no, return false and exit the function.
     // Otherwise, return true.
     //
+
+    //
+    // Is the destination square occupied by another piece of the same color?
+    //
+
+    if (pieceLocations[newSquare].substr(1, 1) == playerColor) {
+        return false;
+    }
 
     //
     // Can the piece move in this way?
@@ -337,9 +335,7 @@ function isMoveValid(oldSquare, newSquare) {
 
                         var lastMove = moves.split(";")[moves.split(";").length - 2];
                         var captureSquare = squareAt(getFile(newSquare), getRank(newSquare) - ((playerColor == 1) ? 1 : -1));
-                        console.log(captureSquare);
                         var opponentPawnStartSquare = squareAt(getFile(newSquare), ((oppenentColor == 1) ? 2 : 7));
-                        console.log(opponentPawnStartSquare);
                         
                         if (getRank(captureSquare) == (6 - playerColor) && pieceLocations[captureSquare] == ('p' + oppenentColor.toString()) && lastMove == opponentPawnStartSquare + captureSquare) {
                             isMoveValid = true;
@@ -359,28 +355,43 @@ function isMoveValid(oldSquare, newSquare) {
             break;
 
         default: // other unexpected values
-            console.log('isMoveValid(): Unexpected piece code in piece locations object'); // TEST PURPOSES... REMOVE THIS LATER ***************************
+            console.log('isMoveValid(): Unexpected piece code in piece locations object' + pieceMoved + ' ' + oldSquare + ' ' + newSquare); // TEST PURPOSES... REMOVE THIS LATER ***************************
 
+    }
+
+    if (!isMoveValid) {
+        pieceLocations = Object.assign(pieceLocations, oldPieceLocations);
+        return false;
     }
 
     //
     // Is the path blocked by other pieces?
     //
 
-    // Add Casting!!! **********************************************************************************************************
     if (moveID == 2 || moveID == 3 || moveID == 4) { // queen, rook, or bishop
+
         isPathBlocked = checkPathBlocked(oldSquare, newSquare, false);
+
     } else if (moveID == 6 || moveID == 7 || moveID == 10) { // forward pawn move (not capturing), castling
+
         isPathBlocked = checkPathBlocked(oldSquare, newSquare, true);
+
     } else { // all other moves are a distance of one, and/or do not care if certain squares are occupied
+
         isPathBlocked = false;
+
+    }
+
+    if (isPathBlocked) {
+        pieceLocations = Object.assign(pieceLocations, oldPieceLocations);
+        return false;
     }
 
     //
     // Does this move (not) leave the player in check?
     //
 
-
+    // Extra test for castling
     if (moveID == 10) {
         var nextSquare = squareAt(columns[(columns.indexOf(getFile(oldSquare)) + columns.indexOf(getFile(newSquare))) / 2], getRank(oldSquare));
 
@@ -397,33 +408,28 @@ function isMoveValid(oldSquare, newSquare) {
         }
     }
 
-
     // Temporarily update piece location in pieceLocations object.
     pieceLocations[newSquare] = pieceLocations[oldSquare];
     pieceLocations[oldSquare] = '  ';
 
     // Find king's position.
     kingLocation = findPiece("k" + playerColor).substr(0, 2);
-    console.log(kingLocation);
 
     if (!isKingInCheck) {
         isKingInCheck = kingInCheck(kingLocation, playerColor, pieceLocations);
     }
     
-    // Determine if move is allowed based on the tested conditions
-    var isMoveAllowed = isMoveValid && !isPathBlocked && !isKingInCheck
+    if (isKingInCheck) {
+        pieceLocations = Object.assign(pieceLocations, oldPieceLocations);
+        return false;
+    }
 
-    // Reset modified piece positions in pieceLocations object if the move is invalid.
-    if (!isMoveAllowed) {
+    // Reset modified piece positions depending on update moves parameter
+    if (!updateMoves) {
         pieceLocations = Object.assign(pieceLocations, oldPieceLocations);
     }
 
-    // Remove these later. *********************************************************************
-    console.log(isMoveValid);
-    console.log(!isPathBlocked);
-    console.log(!isKingInCheck);
-
-    return isMoveAllowed; // Returns true if the move is valid and doesn't leave the king in check.
+    return true; // Returns true if the move is valid and doesn't leave the king in check.
 
 }
 
@@ -449,9 +455,6 @@ function MovePiece(oldSquare, newSquare) {
         }
     }
 
-    //$('#' + oldSquare).children('.piece').first().attr("src", blankImage);
-    //$('#' + newSquare).children('.piece').first().attr("src", "images/pieces/" + pieceLocations[newSquare] + ".png");
-
     // Append new move to moves string
     moves += oldSquare + newSquare + ";"
 
@@ -462,36 +465,67 @@ function MovePiece(oldSquare, newSquare) {
         playerTurn = 1;
     }
 
-    // Test for checkmate
+    // Test for checkmate and stalemate
     var kingLocation = findPiece("k" + playerTurn).substr(0, 2);
 
     if (kingInCheck(kingLocation, playerTurn, pieceLocations)) {
 
         var checkmate = true;
-
-        // ***************************************************************************************************
-        // more code here
         
         // loop through all possible moves for all pieces
         // set checkmate variable to false if a valid move is found
 
+        var squares = pieceSquares(playerTurn);
 
-
-
-
-
-
-        
-        checkmate = false; // REMOVE THIS ONCE CHECKMATE DETECTION IS FINISHED!!! *************************************
+        for (const newSquare in pieceLocations) {
+            squares.forEach(oldSquare => {
+                if (isMoveValid(oldSquare, newSquare, false)) {
+                    checkmate = false;
+                    return;
+                }
+            });
+        }
 
         // If there is a move that stops check, do nothing and continue with the game.
         // Otherwise, end the game.
         if (checkmate) {
+            var action = confirm("Checkmate - " + ((playerTurn == 1) ? "Black" : "White") + " won!\nDo you want to play again?");
 
-            playerTurn = 0;
-            isGameActive = false;
-            $('#StartGame').text('Start Game');
+            if (action == true) {
+                isGameActive = false;
+                StartGame();
+            } else {
+                playerTurn = 0;
+                isGameActive = false;
+                $('#StartGame').text('Start Game');
+            }
+        }
 
+    } else {
+
+        var stalemate = true;
+        var squares = pieceSquares(playerTurn);
+
+        for (const newSquare in pieceLocations) {
+            squares.forEach(oldSquare => {
+                if (isMoveValid(oldSquare, newSquare, false)) {
+                    stalemate = false;
+                    return;
+                }
+            });
+        }
+
+        if (stalemate) {
+            var action = confirm("Stalemate - " + ((playerTurn == 1) ? "White" : "Black") + " has no legal moves.\nDo you want to play again?");
+
+            if (action == true) {
+                isGameActive = false;
+                StartGame();
+            } else {
+                playerTurn = 0;
+                isGameActive = false;
+                $('#StartGame').text('Start Game');
+            }
         }
     }
 
@@ -499,34 +533,25 @@ function MovePiece(oldSquare, newSquare) {
 
 // Function runs when start game button is pressed.
 function StartGame() {
-
-    if (!isGameActive) {
-
-        playerTurn = 1; // Set turn to player 1 (white)
-        isGameActive = true;
-        moves = ""; // Clear past moves
-
-        $('#StartGame').text('Reset Game');
-
-    } else {
-
-        // Reset piece posistions
-        for (const square in pieceLocations) {
-
-            pieceLocations[square] = startingPosition[square]
-
-            if (pieceLocations[square] == '  ') {
-                $('#' + square).children('.piece').first().attr("src", blankImage);
-            } else {
-                $('#' + square).children('.piece').first().attr("src", "images/pieces/" + pieceLocations[square] + ".png");
-            }
     
+    // Reset piece posistions
+    for (const square in pieceLocations) {
+
+        pieceLocations[square] = startingPosition[square]
+
+        if (pieceLocations[square] == '  ') {
+            $('#' + square).children('.piece').first().attr("src", blankImage);
+        } else {
+            $('#' + square).children('.piece').first().attr("src", "images/pieces/" + pieceLocations[square] + ".png");
         }
 
-        playerTurn = 0;
-        isGameActive = false;
-        $('#StartGame').text('Start Game');
     }
+
+    playerTurn = 1; // Set turn to player 1 (white)
+    isGameActive = true;
+    moves = ""; // Clear past moves
+
+    $('#StartGame').text('Restart Game');
     
 }
 
@@ -702,4 +727,19 @@ function getRank(square) {
 // return the square at the given file and rank
 function squareAt(file, rank) {
     return file.toString() + rank.toString();
+}
+
+// return all the squares of a certain color's pieces
+function pieceSquares(playerNumber) {
+
+    var squares = [];
+
+    for (const square in pieceLocations) {
+        if (pieceLocations[square].substr(1, 1) == playerNumber.toString()) {
+            squares.push(square);
+        }
+    }
+
+    return squares;
+    
 }
