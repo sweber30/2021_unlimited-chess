@@ -1,12 +1,6 @@
 
 
 
-
-
-
-
-
-
 //
 // Initialize Variables
 //
@@ -34,11 +28,13 @@ const columns = ["a", "b", "c", "d", "e", "f", "g", "h"];
 
 const blankImage = "data:image/svg+xml;charset=utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E";
 
+var positions = [];
+
 // String to concatenate all new moves
 // Format: "1122;1122;1122; ....." 11 = two character starting square, 22 = two character ending square, moves separated by semicolons 
 var moves = "";
 
-
+var movesWithoutPawnOrCapture = 0;
 
 // Remove right click menu.
 $(document).ready(function() {
@@ -109,7 +105,13 @@ $('.piece').mousedown(function(event) {
     }
 });
 
-// Mouse down event handlers for all squares
+// Touch start event handlers for all squares (touch screens)
+$('.piece').on('touchstart', function(event) {
+    var id = $(this).parent().attr('id');
+    LeftClickDown(id);
+});
+
+// Mouse up event handlers for all squares
 $('.piece').mouseup(function(event) {
 
     var id = $(this).parent().attr('id');
@@ -131,6 +133,23 @@ $('.piece').mouseup(function(event) {
             console.log('You have a strange mouse!'); // REMOVE THIS LATER **********
 
     }
+});
+
+// Touch end event handlers for all squares (touch screens)
+$('.piece').on('touchend', function(event) {
+
+    var id = "";
+    var endTarget = document.elementFromPoint(
+        event.originalEvent.touches[event.originalEvent.touches.length - 1].pageX,
+        event.originalEvent.touches[event.originalEvent.touches.length - 1].pageY
+    );
+    
+    id = $(endTarget).parent().attr('id');
+
+    if (id.length == 2) {
+        LeftClickUp(id);
+    }
+    
 });
 
 // Left click down event
@@ -226,6 +245,9 @@ function isMoveValid(oldSquare, newSquare, updateMoves) {
     var isMoveValid = false;
     var isPathBlocked = false;
     var isKingInCheck = false;
+
+    var isCapturing = (pieceLocations[newSquare] != '  ');
+    var isPawnMove = (pieceMoved == 'p');
 
     var xDistance = CalculateXDistance(oldSquare, newSquare);
     var yDistance = CalculateYDistance(oldSquare, newSquare);
@@ -429,6 +451,15 @@ function isMoveValid(oldSquare, newSquare, updateMoves) {
         pieceLocations = Object.assign(pieceLocations, oldPieceLocations);
     }
 
+    // Increment moves without pawn move or capture counter
+    if (updateMoves) {
+        if (isPawnMove || isCapturing) {
+            movesWithoutPawnOrCapture = 0;
+        } else {
+            movesWithoutPawnOrCapture += 1;
+        }
+    }
+
     return true; // Returns true if the move is valid and doesn't leave the king in check.
 
 }
@@ -457,6 +488,11 @@ function MovePiece(oldSquare, newSquare) {
 
     // Append new move to moves string
     moves += oldSquare + newSquare + ";"
+
+    // Append new board posistion to positions array
+    var currentPosition = {};
+    Object.assign(currentPosition, pieceLocations);
+    positions.push(currentPosition);
 
     // Set turn to next player
     if (playerTurn == 1) {
@@ -489,16 +525,23 @@ function MovePiece(oldSquare, newSquare) {
         // If there is a move that stops check, do nothing and continue with the game.
         // Otherwise, end the game.
         if (checkmate) {
-            var action = confirm("Checkmate - " + ((playerTurn == 1) ? "Black" : "White") + " won!\nDo you want to play again?");
 
-            if (action == true) {
-                isGameActive = false;
-                StartGame();
-            } else {
-                playerTurn = 0;
-                isGameActive = false;
-                $('#StartGame').text('Start Game');
-            }
+            var action;
+            setTimeout(() => {
+                
+                action = confirm("Checkmate - " + ((playerTurn == 1) ? "Black" : "White") + " won!\nDo you want to play again?");
+                
+                if (action == true) {
+                    isGameActive = false;
+                    StartGame();
+                } else {
+                    playerTurn = 0;
+                    isGameActive = false;
+                    $('#StartGame').text('Start Game');
+                }
+
+            }, 250);
+
         }
 
     } else {
@@ -516,7 +559,33 @@ function MovePiece(oldSquare, newSquare) {
         }
 
         if (stalemate) {
-            var action = confirm("Stalemate - " + ((playerTurn == 1) ? "White" : "Black") + " has no legal moves.\nDo you want to play again?");
+
+            var action;
+            setTimeout(() => {
+                
+                action = confirm("Stalemate - " + ((playerTurn == 1) ? "White" : "Black") + " has no legal moves.\nDo you want to play again?");
+
+                if (action == true) {
+                    isGameActive = false;
+                    StartGame();
+                } else {
+                    playerTurn = 0;
+                    isGameActive = false;
+                    $('#StartGame').text('Start Game');
+                }
+            
+            }, 250);
+
+        }
+    }
+
+    // Test for 50 move rule
+    if (movesWithoutPawnOrCapture >= 100) {
+
+        var action;
+        setTimeout(() => {
+            
+            action = confirm("Draw by 50 Move Rule - 50 turns have been played without any pawn moves or captures.\nDo you want to play again?");
 
             if (action == true) {
                 isGameActive = false;
@@ -526,7 +595,94 @@ function MovePiece(oldSquare, newSquare) {
                 isGameActive = false;
                 $('#StartGame').text('Start Game');
             }
+        
+        }, 250);
+
+    }
+
+    // Test for threefold repetition
+    var positionsCount = 0;
+    positions.forEach(position => {
+
+        var isEqual = true;
+
+        for (const square in position) {
+            if (position[square] != pieceLocations[square]) {
+                isEqual = false;
+            }
         }
+
+        if (isEqual) {
+            positionsCount += 1;
+        }
+    });
+
+    if (positionsCount >= 3) {
+
+        var action;
+        setTimeout(() => {
+            
+            action = confirm("Draw by Threefold Repetition - This position has been repeated 3 times.\nDo you want to play again?");
+
+            if (action == true) {
+                isGameActive = false;
+                StartGame();
+            } else {
+                playerTurn = 0;
+                isGameActive = false;
+                $('#StartGame').text('Start Game');
+            }
+        
+        }, 250);
+
+    }
+
+    // test for insufficient material
+    var whitePiecesValue = 0;
+    var blackPiecesValue = 0;
+
+    for (const square in pieceLocations) {
+        var piece = pieceLocations[square];
+        var pieceType = piece.substr(0, 1);
+        var pieceColor = piece.substr(1, 1);
+
+        if (pieceColor == '1') {
+
+            if (pieceType == 'b' || pieceType == 'n') {
+                whitePiecesValue += 1;
+            } else if (pieceType != 'k') {
+                whitePiecesValue += 2;
+            }
+
+        } else if (pieceColor == '2') {
+
+            if (pieceType == 'b' || pieceType == 'n') {
+                blackPiecesValue += 1;
+            } else if (pieceType != 'k') {
+                blackPiecesValue += 2;
+            }
+
+        }
+    }
+
+    if (whitePiecesValue < 2 && blackPiecesValue < 2) {
+
+        var action;
+        setTimeout(() => {
+            
+            action = confirm("Draw by Insufficient Material - There are not enough pieces on the board for either player to win.\nDo you want to play again?");
+
+            if (action == true) {
+                isGameActive = false;
+                StartGame();
+            } else {
+                playerTurn = 0;
+                isGameActive = false;
+                $('#StartGame').text('Start Game');
+            }
+        
+        }, 250);
+
     }
 
 }
@@ -534,7 +690,7 @@ function MovePiece(oldSquare, newSquare) {
 // Function runs when start game button is pressed.
 function StartGame() {
     
-    // Reset piece posistions
+    // Reset piece positions
     for (const square in pieceLocations) {
 
         pieceLocations[square] = startingPosition[square]
@@ -550,6 +706,9 @@ function StartGame() {
     playerTurn = 1; // Set turn to player 1 (white)
     isGameActive = true;
     moves = ""; // Clear past moves
+
+    movesWithoutPawnOrCapture = 0;
+    positions = [];
 
     $('#StartGame').text('Restart Game');
     
